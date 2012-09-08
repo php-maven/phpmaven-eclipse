@@ -16,6 +16,10 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
+import org.phpmaven.eclipse.core.archetype.IArchetypeRegistry;
+import org.phpmaven.eclipse.core.archetype.IArchetypeRegistrySettings;
+import org.phpmaven.eclipse.core.internal.archetype.ArchetypeRegistry;
+import org.phpmaven.eclipse.core.internal.archetype.ArchetypeRegistrySettings;
 import org.phpmaven.eclipse.core.internal.mvn.MvnLoggingAppender;
 import org.phpmaven.eclipse.core.internal.mvn.PhpmavenLauncher;
 import org.phpmaven.eclipse.core.internal.mvn.PhpmavenLocator;
@@ -66,6 +70,16 @@ public class PhpmavenCorePlugin extends AbstractUIPlugin {
     
     /** maven test execution */
     private static ITestExecutionTooling MVN_TEST_EXECUTION_TOOLING = new PhpmavenTestExecution();
+    
+    /**
+     * The archetype registry
+     */
+    private IArchetypeRegistry registry;
+    
+    /**
+     * The archetype registry settings and cache.
+     */
+    private IArchetypeRegistrySettings registrySettings;
     
     /**
      * The constructor.
@@ -224,6 +238,28 @@ public class PhpmavenCorePlugin extends AbstractUIPlugin {
      */
     public static void logError(final String message, final Throwable t) {
         PhpmavenCorePlugin.getDefault().getLog().log(new Status(IStatus.ERROR, PhpmavenCorePlugin.PLUGIN_ID, message, t));
+    }
+    
+    /**
+     * Returns the archetype registry.
+     * @return archetype registry.
+     */
+    public static IArchetypeRegistry getArchetypeRegistry() {
+        if (PhpmavenCorePlugin.getDefault().registry == null) {
+            PhpmavenCorePlugin.getDefault().registry = new ArchetypeRegistry();
+        }
+        return PhpmavenCorePlugin.getDefault().registry;
+    }
+    
+    /**
+     * Returns the archetype registry settings and cache.
+     * @return archetype registry settings and cache.
+     */
+    public static IArchetypeRegistrySettings getArchetypeRegistrySettings() {
+        if (PhpmavenCorePlugin.getDefault().registrySettings == null) {
+            PhpmavenCorePlugin.getDefault().registrySettings = new ArchetypeRegistrySettings();
+        }
+        return PhpmavenCorePlugin.getDefault().registrySettings;
     }
     
 }

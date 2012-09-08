@@ -102,7 +102,7 @@ public class CoverageTreeLabelProvider extends LabelProvider {
     @Override
     public String getText(final Object object) {
         if (object instanceof FileCoverage) {
-            return "files";
+            return Messages.CoverageTreeLabelProvider_Files;
         }
         
         if (object instanceof IFileCoverage) {
@@ -110,11 +110,11 @@ public class CoverageTreeLabelProvider extends LabelProvider {
         }
         
         if (object instanceof ClassCoverage) {
-            return "classes";
+            return Messages.CoverageTreeLabelProvider_Classes;
         }
         
         if (object instanceof LineCoverage) {
-            return "lines";
+            return Messages.CoverageTreeLabelProvider_Lines;
         }
         
         if (object instanceof IClassCoverage) {

@@ -95,22 +95,15 @@ public class MavenJob extends Job {
             
             try {
                 // fetch the maven facade
-                final IMavenProjectFacade projectFacade = projectManager.create(project, monitor);
+                IMavenProjectFacade projectFacade = projectManager.create(project, monitor);
                 if (projectFacade == null) {
-                    projectManager.create(pomResource, true, monitor); // this
-                                                                       // forces
-                                                                       // the
-                                                                       // pom
-                                                                       // loading;
-                                                                       // this
-                                                                       // will
-                                                                       // result
-                                                                       // in
-                                                                       // error
-                                                                       // logs
-                    final String message = NLS.bind(Messages.MavenJob_InvalidPom, new Object[] { project.getName() });
-                    PhpmavenCorePlugin.logError(message);
-                    return new Status(IStatus.ERROR, PhpmavenCorePlugin.PLUGIN_ID, message);
+                    // this forces the pom loading; this will result in error logs if it fails.
+                    projectFacade = projectManager.create(pomResource, true, monitor);
+                    if (projectFacade == null) {
+                        final String message = NLS.bind(Messages.MavenJob_InvalidPom, new Object[] { project.getName() });
+                        PhpmavenCorePlugin.logError(message);
+                        return new Status(IStatus.ERROR, PhpmavenCorePlugin.PLUGIN_ID, message);
+                    }
                 }
                 monitor.worked(20);
                 

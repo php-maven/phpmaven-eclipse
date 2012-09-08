@@ -73,4 +73,10 @@ public interface ITestSuite {
      */
     ITestCase[] getTestCases();
     
+    /**
+     * Returns the child suites for this test suite.
+     * @return child suites.
+     */
+    ITestSuite[] getSubSuites();
+    
 }

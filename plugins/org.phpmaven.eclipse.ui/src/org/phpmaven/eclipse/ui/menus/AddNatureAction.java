@@ -11,24 +11,14 @@
 
 package org.phpmaven.eclipse.ui.menus;
 
-import java.io.ByteArrayInputStream;
-import java.util.Arrays;
 import java.util.Iterator;
 
-import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
-import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IAdaptable;
-import org.eclipse.core.runtime.NullProgressMonitor;
-import org.eclipse.core.runtime.Path;
-import org.eclipse.dltk.core.DLTKCore;
-import org.eclipse.dltk.core.IBuildpathEntry;
-import org.eclipse.dltk.core.IScriptProject;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
-import org.eclipse.m2e.core.internal.IMavenConstants;
 import org.eclipse.m2e.core.project.IMavenProjectFacade;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
@@ -36,7 +26,6 @@ import org.eclipse.ui.IObjectActionDelegate;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.PlatformUI;
 import org.phpmaven.eclipse.core.MavenPhpUtils;
-import org.phpmaven.eclipse.core.PhpmavenCorePlugin;
 import org.phpmaven.eclipse.ui.PhpmavenUiPlugin;
 
 /**
@@ -44,71 +33,7 @@ import org.phpmaven.eclipse.ui.PhpmavenUiPlugin;
  * 
  * @author Martin Eisengardt
  */
-@SuppressWarnings("restriction")
 public class AddNatureAction implements IObjectActionDelegate {
-    
-    /** The pom.xml initial file contents */
-    private static final String POM_CONTENTS = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + //$NON-NLS-1$
-            "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " + //$NON-NLS-1$
-            "xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n" + //$NON-NLS-1$
-            "  <modelVersion>4.0.0</modelVersion>\n" + //$NON-NLS-1$
-            "  <groupId>org.mydomain.sample</groupId>\n" + //$NON-NLS-1$
-            "  <artifactId>${artifactId}</artifactId>\n" + //$NON-NLS-1$
-            "  <version>0.0.1-SNAPSHOT</version>\n" + //$NON-NLS-1$
-            "  <packaging>php</packaging>\n" + //$NON-NLS-1$
-            "  <name>Sampl php-maven project</name>\n" + //$NON-NLS-1$
-            "  <description>The generic parent pom for php projects</description>\n" + //$NON-NLS-1$
-            "\n" + //$NON-NLS-1$
-            "    <build>\n" + //$NON-NLS-1$
-            "        <plugins>\n" + //$NON-NLS-1$
-            "            <plugin>\n" + //$NON-NLS-1$
-            "                <groupId>org.phpmaven</groupId>\n" + //$NON-NLS-1$
-            "                <artifactId>maven-php-plugin</artifactId>\n" + //$NON-NLS-1$
-            "                <version>2.0-SNAPSHOT</version>\n" + //$NON-NLS-1$
-            "                <extensions>true</extensions>\n" + //$NON-NLS-1$
-            "            </plugin>\n" + //$NON-NLS-1$
-            "            <plugin>\n" + //$NON-NLS-1$
-            "                <groupId>org.apache.maven.plugins</groupId>\n" + //$NON-NLS-1$
-            "                <artifactId>maven-site-plugin</artifactId>\n" + //$NON-NLS-1$
-            "                <version>3.0</version>\n" + //$NON-NLS-1$
-            "                <inherited>true</inherited>\n" + //$NON-NLS-1$
-            "                <configuration>\n" + //$NON-NLS-1$
-            "                    <reportPlugins>\n" + //$NON-NLS-1$
-            "                        <plugin>\n" + //$NON-NLS-1$
-            "                            <groupId>org.phpmaven</groupId>\n" + //$NON-NLS-1$
-            "                            <artifactId>maven-php-plugin</artifactId>\n" + //$NON-NLS-1$
-            "                            <reportSets>\n" + //$NON-NLS-1$
-            "                                <reportSet>\n" + //$NON-NLS-1$
-            "                                    <reports>\n" + //$NON-NLS-1$
-            "                                        <report>phpdocumentor</report>\n" + //$NON-NLS-1$
-            "                                        <report>phpunit-coverage</report>\n" + //$NON-NLS-1$
-            "                                    </reports>\n" + //$NON-NLS-1$
-            "                                </reportSet>\n" + //$NON-NLS-1$
-            "                            </reportSets>\n" + //$NON-NLS-1$
-            "                        </plugin>\n" + //$NON-NLS-1$
-            "                        <plugin>\n" + //$NON-NLS-1$
-            "                            <groupId>org.apache.maven.plugins</groupId>\n" + //$NON-NLS-1$
-            "                            <artifactId>maven-surefire-report-plugin</artifactId>\n" + //$NON-NLS-1$
-            "                            <version>2.10</version>\n" + //$NON-NLS-1$
-            "                            <reportSets>\n" + //$NON-NLS-1$
-            "                                <reportSet>\n" + //$NON-NLS-1$
-            "                                    <reports>\n" + //$NON-NLS-1$
-            "                                        <report>report-only</report>\n" + //$NON-NLS-1$
-            "                                    </reports>\n" + //$NON-NLS-1$
-            "                                </reportSet>\n" + //$NON-NLS-1$
-            "                            </reportSets>\n" + //$NON-NLS-1$
-            "                        </plugin>\n" + //$NON-NLS-1$
-            "                    </reportPlugins>\n" + //$NON-NLS-1$
-            "                </configuration>\n" + //$NON-NLS-1$
-            "            </plugin>\n" + //$NON-NLS-1$
-            "        </plugins>\n" + //$NON-NLS-1$
-            "    </build>\n" + //$NON-NLS-1$
-            "\n" + //$NON-NLS-1$
-            "    <properties>\n" + //$NON-NLS-1$
-            "        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n" + //$NON-NLS-1$
-            "    </properties>\n" + //$NON-NLS-1$
-            "\n" + //$NON-NLS-1$
-            "</project>"; //$NON-NLS-1$
     
     /** the selection */
     private ISelection selection;
@@ -154,26 +79,6 @@ public class AddNatureAction implements IObjectActionDelegate {
     }
     
     /**
-     * Adds given nature to project
-     * 
-     * @param project
-     *            project
-     * @param natureId
-     *            nature
-     * @throws CoreException
-     *             thrown on errors
-     */
-    private void addNature(final IProject project, final String natureId) throws CoreException {
-        final IProjectDescription description = project.getDescription();
-        final String[] natures = description.getNatureIds();
-        final String[] newNatures = new String[natures.length + 1];
-        System.arraycopy(natures, 0, newNatures, 0, natures.length);
-        newNatures[natures.length] = natureId;
-        description.setNatureIds(newNatures);
-        project.setDescription(description, null);
-    }
-    
-    /**
      * Toggles sample nature on a project
      * 
      * @param project
@@ -181,15 +86,6 @@ public class AddNatureAction implements IObjectActionDelegate {
      */
     private void toggleNature(final IProject project) {
         try {
-            if (!MavenPhpUtils.isPHPProject(project)) {
-                // we need a php project
-                final MessageBox box = new MessageBox(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), SWT.ICON_ERROR | SWT.ABORT);
-                box.setText(Messages.AddNatureAction_ErrorTitle);
-                box.setMessage(Messages.AddNatureAction_NeedPhpProject);
-                box.open();
-                return;
-            }
-            
             if (MavenPhpUtils.isPhpmavenProject(project)) {
                 // this is already a php-maven project
                 final MessageBox box = new MessageBox(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), SWT.ICON_ERROR | SWT.ABORT);
@@ -199,14 +95,8 @@ public class AddNatureAction implements IObjectActionDelegate {
                 return;
             }
             
-            if (!MavenPhpUtils.isMavenProject(project)) {
-                // activate maven support and generate a simple pom.
-                final IFile pomFile = project.getFile("pom.xml"); //$NON-NLS-1$
-                if (!pomFile.exists()) {
-                    pomFile.create(new ByteArrayInputStream(AddNatureAction.POM_CONTENTS.replace("${artifactId}", project.getName()).getBytes()), true, new NullProgressMonitor()); //$NON-NLS-1$
-                }
-                this.addNature(project, IMavenConstants.NATURE_ID);
-            } else {
+            // check for pom.xml.
+            if (MavenPhpUtils.hasPomXml(project)) {
                 final IMavenProjectFacade facade = MavenPhpUtils.fetchProjectFacade(project);
                 if (!"php".equals(facade.getMavenProject().getPackaging())) { //$NON-NLS-1$
                     final MessageBox box = new MessageBox(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), SWT.ICON_ERROR | SWT.ABORT);
@@ -216,16 +106,25 @@ public class AddNatureAction implements IObjectActionDelegate {
                     return;
                 }
             }
+            else {
+                // create it
+                MavenPhpUtils.createPhpmavenPomXml(project, "org.mydomain.sample", project.getName(), "0.0.1-SNAPSHOT"); //$NON-NLS-1$ //$NON-NLS-2$
+            }
+
+            // add maven nature
+            if (!MavenPhpUtils.isMavenProject(project)) {
+                // no maven project, so we have a pom.xml?
+                MavenPhpUtils.addMavenNature(project);
+            }
             
-            // add the phpmaven nature and build container
-            this.addNature(project, PhpmavenCorePlugin.PHPMAVEN_NATURE_ID);
-            final IScriptProject scriptProject = DLTKCore.create(project);
-            final IBuildpathEntry[] entries = scriptProject.getRawBuildpath();
-            final IBuildpathEntry[] newEntries = Arrays.copyOf(entries, entries.length + 1);
-            newEntries[entries.length] = DLTKCore.newContainerEntry(new Path(PhpmavenCorePlugin.BUILDPATH_CONTAINER_ID));
-            scriptProject.setRawBuildpath(newEntries, new NullProgressMonitor());
+            // add php nature
+            if (!MavenPhpUtils.isPhpmavenProject(project)) {
+                // no php project.
+                MavenPhpUtils.addPhpNature(project);
+            }
             
-            // XXX: fix the include path (src/main/php and src/test/php)
+            // add phpmaven nature
+            MavenPhpUtils.addPhpMavenNature(project);
         } catch (final CoreException e) {
             PhpmavenUiPlugin.logError("Error while toggle PHP-Maven nature", e); //$NON-NLS-1$
         }

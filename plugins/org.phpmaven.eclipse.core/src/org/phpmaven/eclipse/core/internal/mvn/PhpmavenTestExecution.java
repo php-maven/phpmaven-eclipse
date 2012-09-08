@@ -17,7 +17,6 @@ import java.io.FileInputStream;
 import java.util.Properties;
 
 import org.apache.maven.execution.MavenExecutionRequest;
-import org.apache.maven.lifecycle.LifecycleExecutionException;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
@@ -61,6 +60,24 @@ public class PhpmavenTestExecution implements ITestExecutionTooling {
         /** the stdout */
         private final String stdout;
         
+        /** the xml type. */
+        private final String xmlType;
+        
+        /** the coverage type. */
+        private final String coverageType;
+        
+        /** the xml content. */
+        private final String xmlContent;
+        
+        /** the coverage content. */
+        private final String coverageContent;
+        
+        /** the start date. */
+        private final long startDate;
+        
+        /** the end date. */
+        private final long endDate;
+        
         /**
          * Constructor
          * 
@@ -68,12 +85,26 @@ public class PhpmavenTestExecution implements ITestExecutionTooling {
          * @param coverageInfo
          * @param state
          * @param stdout
+         * @param xmlType
+         * @param xmlContent
+         * @param coverageType
+         * @param coverageContent
+         * @param startDate
+         * @param endDate
          */
-        private TestResult(ITestSuite[] suites, ICoverageInfo coverageInfo, IStatus state, String stdout) {
+        private TestResult(ITestSuite[] suites, ICoverageInfo coverageInfo, IStatus state, String stdout,
+                String xmlType, String xmlContent, String coverageType, String coverageContent,
+                long startDate, long endDate) {
             this.suites = suites;
             this.coverageInfo = coverageInfo;
             this.state = state;
             this.stdout = stdout;
+            this.xmlType = xmlType;
+            this.xmlContent = xmlContent;
+            this.coverageType = coverageType;
+            this.coverageContent = coverageContent;
+            this.startDate = startDate;
+            this.endDate = endDate;
         }
         
         @Override
@@ -98,6 +129,36 @@ public class PhpmavenTestExecution implements ITestExecutionTooling {
                 @Override
                 public IStatus getStatus() {
                     return TestResult.this.state;
+                }
+
+                @Override
+                public String getXmlType() {
+                    return TestResult.this.xmlType;
+                }
+
+                @Override
+                public String getCoverageType() {
+                    return TestResult.this.coverageType;
+                }
+
+                @Override
+                public String getXmlContent() {
+                    return TestResult.this.xmlContent;
+                }
+
+                @Override
+                public String getCoverageContent() {
+                    return TestResult.this.coverageContent;
+                }
+
+                @Override
+                public long getDateStarted() {
+                    return TestResult.this.startDate;
+                }
+
+                @Override
+                public long getEndDate() {
+                    return TestResult.this.endDate;
                 }
             };
         }
@@ -187,6 +248,7 @@ public class PhpmavenTestExecution implements ITestExecutionTooling {
      * @return test results
      */
     private ITestResults executeTests(final IProject project, final String testFile, final String testFolder, IProgressMonitor monitor) {
+        final long startDate = System.currentTimeMillis();
         monitor.worked(10);
         monitor.setTaskName("Preparing mvn test call");
         try {
@@ -205,7 +267,7 @@ public class PhpmavenTestExecution implements ITestExecutionTooling {
                     }
                     props.setProperty("singleTestInvocation", "true"); //$NON-NLS-1$ //$NON-NLS-2$
                     props.setProperty("phpunitXmlResult", resultXml.getAbsolutePath()); //$NON-NLS-1$
-                    props.setProperty("phpunitCoverageResult", coverageXml.getAbsolutePath()); //$NON-NLS-1$
+                    props.setProperty("phpunitCoverageResultXml", coverageXml.getAbsolutePath()); //$NON-NLS-1$
                     props.setProperty("maven.test.failure.ignore", "true"); //$NON-NLS-1$ //$NON-NLS-2$
                     props.setProperty("failIfNoTests", "true"); //$NON-NLS-1$ //$NON-NLS-2$
                 }
@@ -227,18 +289,18 @@ public class PhpmavenTestExecution implements ITestExecutionTooling {
             };
             
             final MavenJob job = new MavenJob(jobData);
-            monitor.worked(20);
-            monitor.setTaskName("execute"); //$NON-NLS-1$
+            monitor.worked(10);
+            monitor.setTaskName("execute");
             final SubProgressMonitor subMonitor = new SubProgressMonitor(monitor, 50, SubProgressMonitor.PREPEND_MAIN_LABEL_TO_SUBTASK);
             final IStatus mavenResult = job.execute(subMonitor);
             subMonitor.done();
             if (mavenResult.isOK()) {
-                monitor.setTaskName("Reading test results"); //$NON-NLS-1$
+                monitor.setTaskName("Reading test results");
 
                 String coverageString = null;
                 String resultString = null;
                 
-                if (coverageXml.exists()) {
+                if (coverageXml.exists() && coverageXml.length() > 0) {
                     final FileInputStream fis = new FileInputStream(coverageXml);
                     final byte[] buffer = new byte[(int) coverageXml.length()];
                     final BufferedInputStream bis = new BufferedInputStream(fis);
@@ -249,7 +311,7 @@ public class PhpmavenTestExecution implements ITestExecutionTooling {
                     coverageString = "<?xml version=\"1.0\" ?><coverage/>"; //$NON-NLS-1$
                 }
                 
-                if (resultXml.exists()) {
+                if (resultXml.exists() && resultXml.length() > 0) {
                     final FileInputStream fis = new FileInputStream(resultXml);
                     final byte[] buffer = new byte[(int) resultXml.length()];
                     final BufferedInputStream bis = new BufferedInputStream(fis);
@@ -260,23 +322,31 @@ public class PhpmavenTestExecution implements ITestExecutionTooling {
                     resultString = "<?xml version=\"1.0\" ?><test/>"; //$NON-NLS-1$
                 }
                 
-                monitor.worked(80);
+                monitor.worked(10);
                 
                 final IPhpUnit phpUnitTooling = PhpmavenCorePlugin.getPhpUnit(project);
                 monitor.setTaskName("Parsing coverage info"); //$NON-NLS-1$
                 final ICoverageInfo coverageInfo = phpUnitTooling.parseCoverageInfo(coverageString, "clover", project); //$NON-NLS-1$
-                monitor.worked(90);
+                monitor.worked(10);
                 monitor.setTaskName("Parsing test results"); //$NON-NLS-1$
                 final ITestSuite[] suites = phpUnitTooling.parseTestResults(resultString, "xml", project); //$NON-NLS-1$
-                monitor.worked(99);
+                monitor.worked(9);
                 
-                return new TestResult(suites, coverageInfo, Status.OK_STATUS, job.getSysout());
+                final long endDate = System.currentTimeMillis();
+                return new TestResult(
+                        suites, coverageInfo, Status.OK_STATUS, job.getSysout(),
+                        "xml", resultString, "clover", coverageString, startDate, endDate);  //$NON-NLS-1$//$NON-NLS-2$
             }
             
-            return new TestResult(null, null, mavenResult, job.getSysout());
+            final long endDate = System.currentTimeMillis();
+            return new TestResult(null, null, mavenResult, job.getSysout(),
+                    null, null, null, null, startDate, endDate);
         } catch (final Exception ex) {
             PhpmavenCorePlugin.logError("Error while executing mvn test", ex); //$NON-NLS-1$
-            return new TestResult(null, null, new Status(IStatus.ERROR, PhpmavenCorePlugin.PLUGIN_ID, "Error executing mvn test", ex), null);
+            final long endDate = System.currentTimeMillis();
+            return new TestResult(
+                    null, null, new Status(IStatus.ERROR, PhpmavenCorePlugin.PLUGIN_ID, "Error executing mvn test", ex), null,
+                    null, null, null, null, startDate, endDate);
         } finally {
             monitor.done();
         }

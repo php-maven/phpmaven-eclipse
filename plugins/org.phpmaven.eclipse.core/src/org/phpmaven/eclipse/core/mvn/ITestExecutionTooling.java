@@ -78,6 +78,42 @@ public interface ITestExecutionTooling {
          */
         String getStdout();
         
+        /**
+         * Returns the xml type that was used.
+         * @return xml type
+         */
+        String getXmlType();
+        
+        /**
+         * Returns the coverage type that was used.
+         * @return coverage type.
+         */
+        String getCoverageType();
+        
+        /**
+         * Returns the xml content that was used.
+         * @return xml content.
+         */
+        String getXmlContent();
+        
+        /**
+         * Returns the coverage content that was used.
+         * @return coverage content.
+         */
+        String getCoverageContent();
+        
+        /**
+         * Returns the start date.
+         * @return start date.
+         */
+        long getDateStarted();
+        
+        /**
+         * Returns the end date.
+         * @return end date.
+         */
+        long getEndDate();
+        
     }
     
     /**

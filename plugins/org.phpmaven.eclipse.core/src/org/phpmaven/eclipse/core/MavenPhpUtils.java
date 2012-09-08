@@ -11,25 +11,37 @@
 
 package org.phpmaven.eclipse.core;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Extension;
+import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
+import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.content.IContentDescription;
 import org.eclipse.core.runtime.content.IContentType;
 import org.eclipse.dltk.core.DLTKCore;
@@ -49,12 +61,18 @@ import org.eclipse.dltk.core.search.SearchPattern;
 import org.eclipse.dltk.core.search.SearchRequestor;
 import org.eclipse.dltk.internal.ui.search.DLTKSearchScopeFactory;
 import org.eclipse.dltk.ui.search.PatternQuerySpecification;
+import org.eclipse.dltk.utils.ResourceUtil;
 import org.eclipse.m2e.core.MavenPlugin;
 import org.eclipse.m2e.core.embedder.IMaven;
 import org.eclipse.m2e.core.internal.IMavenConstants;
 import org.eclipse.m2e.core.project.IMavenProjectFacade;
 import org.eclipse.php.internal.core.PHPLanguageToolkit;
+import org.eclipse.php.internal.core.PHPVersion;
+import org.eclipse.php.internal.core.includepath.IncludePath;
+import org.eclipse.php.internal.core.includepath.IncludePathManager;
+import org.eclipse.php.internal.core.language.LanguageModelInitializer;
 import org.eclipse.php.internal.core.project.PHPNature;
+import org.eclipse.php.internal.core.project.ProjectOptions;
 
 /**
  * Utility class
@@ -66,6 +84,74 @@ public class MavenPhpUtils {
     
     /** content type for php files */
     public final static String ContentTypeID_PHP = "org.eclipse.php.core.phpsource"; //$NON-NLS-1$
+    
+    /** The pom.xml initial file contents */
+    private static final String POM_CONTENTS = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + //$NON-NLS-1$
+            "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " + //$NON-NLS-1$
+            "xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n" + //$NON-NLS-1$
+            "  <modelVersion>4.0.0</modelVersion>\n" + //$NON-NLS-1$
+            "  <groupId>${groupId}</groupId>\n" + //$NON-NLS-1$
+            "  <artifactId>${artifactId}</artifactId>\n" + //$NON-NLS-1$
+            "  <version>${version}</version>\n" + //$NON-NLS-1$
+            "  <packaging>php</packaging>\n" + //$NON-NLS-1$
+            "  <name>Sample php-maven project</name>\n" + //$NON-NLS-1$
+            "  <description>The generic parent pom for php projects</description>\n" + //$NON-NLS-1$
+            "\n" + //$NON-NLS-1$
+            "  <parent>\n" + //$NON-NLS-1$
+            "    <groupId>org.phpmaven</groupId>\n" + //$NON-NLS-1$
+            "    <artifactId>php-parent-pom</artifactId>\n" + //$NON-NLS-1$
+            "    <version>2.0.0</version>\n" + //$NON-NLS-1$
+            "  </parent>\n" + //$NON-NLS-1$
+            "\n" + //$NON-NLS-1$
+            "    <properties>\n" + //$NON-NLS-1$
+            "        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n" + //$NON-NLS-1$
+            "        <phpunit.version>3.6.10</phpunit.version>\n" + //$NON-NLS-1$
+            "    </properties>\n" + //$NON-NLS-1$
+            "\n" + //$NON-NLS-1$
+            "    <build>\n" + //$NON-NLS-1$
+            "        <plugins>\n" + //$NON-NLS-1$
+            "            <plugin>\n" + //$NON-NLS-1$
+            "                <groupId>org.phpmaven</groupId>\n" + //$NON-NLS-1$
+            "                <artifactId>maven-php-plugin</artifactId>\n" + //$NON-NLS-1$
+            "                <version>${phpmaven.plugin.version}</version>\n" + //$NON-NLS-1$
+            "                <configuration></configuration>\n" + //$NON-NLS-1$
+            "            </plugin>\n" + //$NON-NLS-1$
+            "            <plugin>\n" + //$NON-NLS-1$
+            "                <groupId>org.apache.maven.plugins</groupId>\n" + //$NON-NLS-1$
+            "                <artifactId>maven-site-plugin</artifactId>\n" + //$NON-NLS-1$
+            "                <version>3.0</version>\n" + //$NON-NLS-1$
+            "                <inherited>true</inherited>\n" + //$NON-NLS-1$
+            "                <configuration>\n" + //$NON-NLS-1$
+            "                    <reportPlugins>\n" + //$NON-NLS-1$
+            "                        <plugin>\n" + //$NON-NLS-1$
+            "                            <groupId>org.phpmaven</groupId>\n" + //$NON-NLS-1$
+            "                            <artifactId>maven-php-plugin</artifactId>\n" + //$NON-NLS-1$
+            "                            <reportSets>\n" + //$NON-NLS-1$
+            "                                <reportSet>\n" + //$NON-NLS-1$
+            "                                    <reports>\n" + //$NON-NLS-1$
+            "                                        <report>phpdocumentor</report>\n" + //$NON-NLS-1$
+            "                                        <report>phpunit</report>\n" + //$NON-NLS-1$
+            "                                        <report>phpunit-coverage</report>\n" + //$NON-NLS-1$
+            "                                    </reports>\n" + //$NON-NLS-1$
+            "                                </reportSet>\n" + //$NON-NLS-1$
+            "                            </reportSets>\n" + //$NON-NLS-1$
+            "                        </plugin>\n" + //$NON-NLS-1$
+            "                    </reportPlugins>\n" + //$NON-NLS-1$
+            "                </configuration>\n" + //$NON-NLS-1$
+            "            </plugin>\n" + //$NON-NLS-1$
+            "        </plugins>\n" + //$NON-NLS-1$
+            "    </build>\n" + //$NON-NLS-1$
+            "\n" + //$NON-NLS-1$
+            "    <dependencies>\n" + //$NON-NLS-1$
+            "      <dependency>\n" + //$NON-NLS-1$
+            "        <groupId>de.phpunit</groupId>\n" + //$NON-NLS-1$
+            "        <artifactId>PHPUnit</artifactId>\n" + //$NON-NLS-1$
+            "        <version>${phpunit.version}</version>\n" + //$NON-NLS-1$
+            "        <type>phar</type>\n" + //$NON-NLS-1$
+            "        <scope>test</scope>\n" + //$NON-NLS-1$
+            "      </dependency>\n" + //$NON-NLS-1$
+            "    </dependencies>\n" + //$NON-NLS-1$
+            "</project>"; //$NON-NLS-1$
     
     /**
      * Creates a search scope for php to search within project
@@ -316,6 +402,17 @@ public class MavenPhpUtils {
      */
     public static IMavenProjectFacade fetchProjectFacade(final IProject project) {
         return new FetchMavenProject().fetch(project);
+    }
+    
+    /**
+     * Fetches and returns the maven project facade.
+     * @param project eclipse project
+     * @param facade maven project facade
+     * @return site output folder.
+     */
+    public static IFolder getSiteOutputFolder(final IProject project, IMavenProjectFacade facade) {
+        // TODO
+        return project.getFolder("target/site"); //$NON-NLS-1$
     }
     
     /**
@@ -608,6 +705,226 @@ public class MavenPhpUtils {
             }
         }
         return false;
+    }
+    
+    /**
+     * Adds given nature to project
+     * 
+     * @param project
+     *            project
+     * @param natureId
+     *            nature
+     * @throws CoreException
+     *             thrown on errors
+     */
+    public static void addNature(final IProject project, final String natureId) throws CoreException {
+        final IProjectDescription description = project.getDescription();
+        final String[] natures = description.getNatureIds();
+        final String[] newNatures = new String[natures.length + 1];
+        System.arraycopy(natures, 0, newNatures, 0, natures.length);
+        newNatures[natures.length] = natureId;
+        description.setNatureIds(newNatures);
+        project.setDescription(description, null);
+    }
+    
+    /**
+     * Returns true if pom.xml is found in given project.
+     * @param project project
+     * @return true if pom.xml is found.
+     */
+    public static boolean hasPomXml(final IProject project) {
+        final IFile pomXml = project.getFile("pom.xml"); //$NON-NLS-1$
+        return pomXml.exists();
+    }
+    
+    /**
+     * Creates a php-maven pom.xml
+     * @param project the project
+     * @param groupId
+     * @param artifactId
+     * @param version
+     * @throws CoreException
+     */
+    public static void createPhpmavenPomXml(final IProject project, final String groupId, final String artifactId, final String version) throws CoreException {
+        final IFile pomXml = project.getFile("pom.xml"); //$NON-NLS-1$
+        if (pomXml.exists()) {
+            throw new CoreException(new Status(IStatus.ERROR, PhpmavenCorePlugin.PLUGIN_ID, "pom.xml found! Unable to recreate.")); //$NON-NLS-1$
+        }
+        pomXml.create(new ByteArrayInputStream(
+                POM_CONTENTS.replace("${artifactId}", artifactId) //$NON-NLS-1$
+                .replace("${groupId}", groupId) //$NON-NLS-1$
+                .replace("${version}", version) //$NON-NLS-1$
+                .getBytes()), true, new NullProgressMonitor());
+    }
+    
+    /**
+     * Adds maven nature to given project; requires pom.xml to be present.
+     * @param project
+     * @throws CoreException
+     */
+    public static void addMavenNature(final IProject project) throws CoreException {
+        if (!isMavenProject(project)) {
+            if (!hasPomXml(project)) {
+                throw new CoreException(new Status(IStatus.ERROR, PhpmavenCorePlugin.PLUGIN_ID, "pom.xml not found! Cannot add maven nature.")); //$NON-NLS-1$
+            }
+            MavenPhpUtils.addNature(project, IMavenConstants.NATURE_ID);
+        }
+    }
+    
+    /**
+     * Adds php nature to project.
+     * @param project
+     * @throws CoreException
+     */
+    public static void addPhpNature(final IProject project) throws CoreException {
+        if (!isPHPProject(project)) {
+            if (!hasPomXml(project)) {
+                throw new CoreException(new Status(IStatus.ERROR, PhpmavenCorePlugin.PLUGIN_ID, "pom.xml not found! Cannot add php nature.")); //$NON-NLS-1$
+            }
+            
+            final IMavenProjectFacade facade = fetchProjectFacade(project);
+            final IPath[] paths = getCompileSourceLocations(project, facade);
+            final IPath[] testPaths = getTestCompileSourceLocations(project, facade);
+            
+            final IScriptProject scriptProject = DLTKCore.create(project);
+            final List<IBuildpathEntry> entries = new ArrayList<IBuildpathEntry>();
+            final List<IncludePath> includes = new ArrayList<IncludePath>();
+            for (final IPath path : paths) {
+                entries.add(DLTKCore.newSourceEntry(path));
+                includes.add(new IncludePath(project.getFolder(path.removeFirstSegments(1)), project));
+            }
+            for (final IPath testPath : testPaths) {
+                entries.add(DLTKCore.newSourceEntry(testPath));
+                includes.add(new IncludePath(project.getFolder(testPath.removeFirstSegments(1)), project));
+            }
+            
+            final boolean useASPTags = false;
+            final PHPVersion phpVersion = PHPVersion.PHP5_3;
+            ProjectOptions.setSupportingAspTags(useASPTags, project);
+            ProjectOptions.setPhpVersion(phpVersion, project);
+            
+            ResourceUtil.addNature(project, new NullProgressMonitor(), PHPNature.ID);
+            
+            // TODO JsWebNature jsWebNature = new JsWebNature(getProject(),
+            // new SubProgressMonitor(monitor, 1));
+            // jsWebNature.configure();
+            
+            scriptProject.setRawBuildpath(entries.toArray(new IBuildpathEntry[entries.size()]), new NullProgressMonitor());
+            LanguageModelInitializer.enableLanguageModelFor(scriptProject);
+            
+            IncludePathManager.getInstance().setIncludePath(project, includes.toArray(new IncludePath[includes.size()]));
+        }
+    }
+    
+    /**
+     * Adds maven nature to given project; requires pom.xml to be present.
+     * @param project
+     * @throws CoreException
+     */
+    public static void addPhpMavenNature(final IProject project) throws CoreException {
+        if (!isPHPProject(project)) {
+            throw new CoreException(new Status(IStatus.ERROR, PhpmavenCorePlugin.PLUGIN_ID, "Unable to add php-maven nature on non-php-projects")); //$NON-NLS-1$
+        }
+        if (!isMavenProject(project)) {
+            throw new CoreException(new Status(IStatus.ERROR, PhpmavenCorePlugin.PLUGIN_ID, "Unable to add php-maven nature on non-maven-projects")); //$NON-NLS-1$
+        }
+        
+        if (!isPhpmavenProject(project)) {
+            addNature(project, PhpmavenCorePlugin.PHPMAVEN_NATURE_ID);
+            final IScriptProject scriptProject = DLTKCore.create(project);
+            final IBuildpathEntry[] entries = scriptProject.getRawBuildpath();
+            final IBuildpathEntry[] newEntries = Arrays.copyOf(entries, entries.length + 1);
+            newEntries[entries.length] = DLTKCore.newContainerEntry(new Path(PhpmavenCorePlugin.BUILDPATH_CONTAINER_ID));
+            scriptProject.setRawBuildpath(newEntries, new NullProgressMonitor());
+
+            // XXX: fix src paths/ include paths
+            // src/main/php and src/test/php
+        }
+    }
+    
+    /**
+     * Returns true if maven is offline.
+     * @return true for offline maven.
+     */
+    public static boolean isOffline() {
+        return MavenPlugin.getMavenConfiguration().isOffline();
+    }
+    
+    /**
+     * Builds a new artifact.
+     * @param groupId group id.
+     * @param artifactId artifact id.
+     * @param version version.
+     * @return artifact
+     * @throws CoreException thrown on problems
+     */
+    @SuppressWarnings("unchecked")
+    public static Artifact buildArtifact(String groupId, String artifactId, String version) throws CoreException {
+        return MavenPlugin.getMaven().resolve(
+                groupId,
+                artifactId,
+                version,
+                null, "pom", //$NON-NLS-1$
+                Collections.EMPTY_LIST, new NullProgressMonitor());
+    }
+    
+    /**
+     * Returns the effective pom.
+     * @param facade facade.
+     * @return effective pom.
+     */
+    public static String getEffectivePom(IMavenProjectFacade facade) {
+        final StringWriter sw = new StringWriter();
+        try {
+            new MavenXpp3Writer().write(sw, facade.getMavenProject().getModel());
+        }
+        catch (IOException ex) {
+            // should never happen
+            return ex.toString();
+        }
+        return sw.toString();
+    }
+    
+    /**
+     * Returns the effective pom.
+     * @param facade facade.
+     * @return effective pom.
+     * @throws CoreException 
+     */
+    public static Model getEffectiveModel(IMavenProjectFacade facade) throws CoreException {
+        final String effectivePom = getEffectivePom(facade);
+        return MavenPlugin.getMavenModelManager().readMavenModel(new ByteArrayInputStream(effectivePom.getBytes()));
+    }
+
+    /**
+     * Returns the php-maven version that is used (main plugin version)
+     * @param facade facade
+     * @return the php-maven plugin version
+     * @throws CoreException 
+     */
+    public static String getPhpmavenVersion(IMavenProjectFacade facade) throws CoreException {
+        final Model effectiveModel = getEffectiveModel(facade);
+        return getPhpmavenVersion(effectiveModel);
+    }
+
+    /**
+     * Returns the php-maven version that is used (main plugin version)
+     * @param effectiveModel the effective maven model
+     * @return the php-maven plugin version
+     * @throws CoreException 
+     */
+    public static String getPhpmavenVersion(Model effectiveModel) throws CoreException {
+        for (final Extension ext : effectiveModel.getBuild().getExtensions()) {
+            if ("org.phpmaven".equals(ext.getGroupId()) && "maven-php-plugin".equals(ext.getArtifactId())) {  //$NON-NLS-1$//$NON-NLS-2$
+                return ext.getVersion();
+            }
+        }
+        for (final Plugin plugin : effectiveModel.getBuild().getPlugins()) {
+            if ("org.phpmaven".equals(plugin.getGroupId()) && "maven-php-plugin".equals(plugin.getArtifactId())) {  //$NON-NLS-1$//$NON-NLS-2$
+                return plugin.getVersion();
+            }
+        }
+        return null;
     }
     
 }

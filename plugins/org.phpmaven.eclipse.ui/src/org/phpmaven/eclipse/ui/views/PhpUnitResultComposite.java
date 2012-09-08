@@ -56,6 +56,8 @@ public class PhpUnitResultComposite extends Composite {
     private final Text testInfoArea;
     /** the std out tab item */
     private final TabItem stdoutItem;
+    /** the test results (if any) */
+    private ITestResults results;
     
     /**
      * Constructor
@@ -82,7 +84,7 @@ public class PhpUnitResultComposite extends Composite {
         infoComposite.setLayout(glInfo);
         
         final Label labelStarted = new Label(infoComposite, SWT.NONE);
-        labelStarted.setText("started:");
+        labelStarted.setText(Messages.PhpUnitResultComposite_Label_Started);
         this.labelStartedDate = new DateTime(infoComposite, SWT.TIME | SWT.MEDIUM);
         this.labelStartedDate.setData(new Date());
         this.labelStartedDate.setEnabled(false);
@@ -92,7 +94,7 @@ public class PhpUnitResultComposite extends Composite {
         this.labelStartedDate.setLayoutData(gdStartedDate);
         
         final Label labelDuration = new Label(infoComposite, SWT.NONE);
-        labelDuration.setText("duration:");
+        labelDuration.setText(Messages.PhpUnitResultComposite_Label_Duration);
         this.labelDurationMs = new Label(infoComposite, SWT.NONE);
         final GridData gdLabelDuration = new GridData();
         gdLabelDuration.horizontalAlignment = GridData.FILL;
@@ -100,12 +102,12 @@ public class PhpUnitResultComposite extends Composite {
         this.labelDurationMs.setLayoutData(gdLabelDuration);
         
         final Label labelState = new Label(infoComposite, SWT.NONE);
-        labelState.setText("state:");
+        labelState.setText(Messages.PhpUnitResultComposite_Label_State);
         this.labelStateText = new Label(infoComposite, SWT.NONE);
         final GridData gdState = new GridData();
         gdState.horizontalAlignment = GridData.FILL;
         gdState.grabExcessHorizontalSpace = true;
-        this.labelStateText.setText("preparation");
+        this.labelStateText.setText(Messages.PhpUnitResultComposite_State_Preparation);
         this.labelStateText.setLayoutData(gdState);
         
         // tab panel
@@ -119,7 +121,7 @@ public class PhpUnitResultComposite extends Composite {
         
         // tab "tests"
         final TabItem testsItem = new TabItem(tabFolder, SWT.NONE);
-        testsItem.setText("Test result");
+        testsItem.setText(Messages.PhpUnitResultComposite_Label_TestResult);
         final Composite testsComposite = new Composite(tabFolder, SWT.NONE);
         final GridLayout glTests = new GridLayout();
         glTests.numColumns = 1;
@@ -150,7 +152,7 @@ public class PhpUnitResultComposite extends Composite {
         
         // tab "coverage"
         final TabItem covItem = new TabItem(tabFolder, SWT.NONE);
-        covItem.setText("Code coverage");
+        covItem.setText(Messages.PhpUnitResultComposite_Label_CodeCoverage);
         final Composite covComposite = new Composite(tabFolder, SWT.NONE);
         covComposite.setLayout(new FillLayout());
         this.coverageTreeViewer = new TreeViewer(covComposite);
@@ -159,7 +161,7 @@ public class PhpUnitResultComposite extends Composite {
         covItem.setControl(covComposite);
         
         this.stdoutItem = new TabItem(tabFolder, SWT.NONE);
-        this.stdoutItem.setText("Stdout");
+        this.stdoutItem.setText(Messages.PhpUnitResultComposite_Label_StdOut);
         final Composite stdoutComposite = new Composite(tabFolder, SWT.NONE);
         final GridLayout glStdout = new GridLayout();
         glStdout.numColumns = 1;
@@ -167,7 +169,7 @@ public class PhpUnitResultComposite extends Composite {
         this.stdoutItem.setControl(stdoutComposite);
         
         final Label labelStdoutCommandline = new Label(stdoutComposite, SWT.NONE);
-        labelStdoutCommandline.setText("Command line:");
+        labelStdoutCommandline.setText(Messages.PhpUnitResultComposite_Label_CLI);
         this.labelCommandline = new Text(stdoutComposite, SWT.MULTI | SWT.V_SCROLL | SWT.H_SCROLL);
         this.labelCommandline.setEditable(false);
         final GridData gdCommandline = new GridData();
@@ -176,7 +178,7 @@ public class PhpUnitResultComposite extends Composite {
         this.labelCommandline.setLayoutData(gdCommandline);
         
         final Label labelStdoutResult = new Label(stdoutComposite, SWT.NONE);
-        labelStdoutResult.setText("Result:");
+        labelStdoutResult.setText(Messages.PhpUnitResultComposite_Label_Result);
         this.labelStdout = new Text(stdoutComposite, SWT.MULTI | SWT.V_SCROLL | SWT.H_SCROLL);
         this.labelStdout.setEditable(false);
         final GridData gdStdout = new GridData();
@@ -195,10 +197,11 @@ public class PhpUnitResultComposite extends Composite {
      */
     public void setCommandLine(final String commandline) {
         this.labelCommandline.setText(commandline);
-        this.labelStateText.setText("running...");
+        this.labelStateText.setText(Messages.PhpUnitResultComposite_State_Running);
         this.testsTreeViewer.setInput(null);
         this.coverageTreeViewer.setInput(null);
-        this.labelStdout.setText("");
+        this.labelStdout.setText(Messages.PhpUnitResultComposite_Stdout_Empty);
+        this.results = null;
     }
     
     /**
@@ -208,11 +211,12 @@ public class PhpUnitResultComposite extends Composite {
      *            std out
      */
     public void setFailure(final String stdout) {
-        this.labelStdout.setText(stdout == null ? "NULL (- no stdout fetched -)" : stdout);
-        this.labelStateText.setText("fatal error (see stdout)");
+        this.labelStdout.setText(stdout == null ? Messages.PhpUnitResultComposite_Stdout_NULL : stdout);
+        this.labelStateText.setText(Messages.PhpUnitResultComposite_State_FatalError);
         this.stdoutItem.getParent().setSelection(this.stdoutItem);
         this.testsTreeViewer.setInput(null);
         this.coverageTreeViewer.setInput(null);
+        this.results = null;
     }
     
     /**
@@ -224,17 +228,18 @@ public class PhpUnitResultComposite extends Composite {
      *            results
      */
     public void setResults(final String stdout, final ITestResults results) {
+        this.results = results;
         this.testsTreeViewer.setInput(results);
         this.coverageTreeViewer.setInput(results);
         this.testsTreeViewer.expandToLevel(1);
         this.coverageTreeViewer.expandToLevel(1);
         for (final ITestSuite suite : results.getTestSuites()) {
             if (suite.getFailures() > 0 || suite.getErrors() > 0) {
-                this.labelStateText.setText("failures");
+                this.labelStateText.setText(Messages.PhpUnitResultComposite_State_Failures);
                 return;
             }
         }
-        this.labelStateText.setText("success");
+        this.labelStateText.setText(Messages.PhpUnitResultComposite_State_Success);
         this.labelStdout.setText(stdout);
         // TODO switch to tests tab
     }
@@ -271,9 +276,17 @@ public class PhpUnitResultComposite extends Composite {
                     return;
                 }
             }
-            PhpUnitResultComposite.this.testInfoArea.setText(""); //$NON-NLS-1$
+            PhpUnitResultComposite.this.testInfoArea.setText("");
         }
         
+    }
+
+    /**
+     * Returns the text result.
+     * @return text result.
+     */
+    public ITestResults getResults() {
+        return this.results;
     }
     
 }

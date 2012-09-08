@@ -151,5 +151,12 @@
 			>
 		</specification>
    </extension>
+   <extension
+         point="org.eclipse.m2e.core.archetypeCatalogs">
+      <remote
+            description="PHP-Maven archetype catalog"
+            url="http://www.php-maven.org/archetype-catalog.xml">
+      </remote>
+   </extension>
 
 </plugin>

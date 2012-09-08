@@ -12,6 +12,7 @@
 package org.phpmaven.eclipse.core.internal.phpunit;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,10 +24,12 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.dltk.core.DLTKCore;
 import org.eclipse.dltk.core.IMethod;
 import org.eclipse.dltk.core.IScriptProject;
 import org.eclipse.dltk.core.IType;
+import org.eclipse.dltk.core.ModelException;
 import org.eclipse.dltk.core.search.SearchMatch;
 import org.phpmaven.eclipse.core.MavenPhpUtils;
 import org.phpmaven.eclipse.core.PhpmavenCorePlugin;
@@ -190,88 +193,16 @@ public class Phpunit355 implements IPhpUnit {
             final NodeList nl = doc.getChildNodes();
             for (int i = 0; i < nl.getLength(); i++) {
                 final Node n = nl.item(i);
+                if (n.getNodeType() != Node.ELEMENT_NODE) continue;
                 if ("testsuites".equals(n.getNodeName())) //$NON-NLS-1$
                 {
                     final NodeList nlTestsuites = n.getChildNodes();
                     for (int iTestsuites = 0; iTestsuites < nlTestsuites.getLength(); iTestsuites++) {
                         final Node testsuite = nlTestsuites.item(iTestsuites);
+                        if (testsuite.getNodeType() != Node.ELEMENT_NODE) continue;
                         if ("testsuite".equals(testsuite.getNodeName())) //$NON-NLS-1$
                         {
-                            final TestSuite oTestSuite = new TestSuite();
-                            result.add(oTestSuite);
-                            oTestSuite.setName(testsuite.getAttributes().getNamedItem("name").getTextContent()); //$NON-NLS-1$
-                            oTestSuite.setFile(testsuite.getAttributes().getNamedItem("file").getTextContent()); //$NON-NLS-1$
-                            oTestSuite.setTests(Integer.parseInt(testsuite.getAttributes().getNamedItem("tests").getTextContent())); //$NON-NLS-1$
-                            oTestSuite.setAssertions(Integer.parseInt(testsuite.getAttributes().getNamedItem("assertions").getTextContent())); //$NON-NLS-1$
-                            oTestSuite.setFailures(Integer.parseInt(testsuite.getAttributes().getNamedItem("failures").getTextContent())); //$NON-NLS-1$
-                            oTestSuite.setErrors(Integer.parseInt(testsuite.getAttributes().getNamedItem("errors").getTextContent())); //$NON-NLS-1$
-                            oTestSuite.setTime(Float.parseFloat(testsuite.getAttributes().getNamedItem("time").getTextContent())); //$NON-NLS-1$
-                            final NodeList nlTestuite = testsuite.getChildNodes();
-                            for (int iTestsuite = 0; iTestsuite < nlTestuite.getLength(); iTestsuite++) {
-                                final Node test = nlTestuite.item(iTestsuite);
-                                if ("testcase".equals(test.getNodeName())) //$NON-NLS-1$
-                                {
-                                    final TestCase oTestCase = new TestCase();
-                                    oTestSuite.addTestCase(oTestCase);
-                                    final String clsName = test.getAttributes().getNamedItem("class").getTextContent(); //$NON-NLS-1$
-                                    final String mthName = test.getAttributes().getNamedItem("name").getTextContent(); //$NON-NLS-1$
-                                    
-                                    oTestCase.setName(mthName);
-                                    oTestCase.setClassName(clsName);
-                                    oTestCase.setFile(test.getAttributes().getNamedItem("file").getTextContent()); //$NON-NLS-1$
-                                    oTestCase.setLine(Integer.parseInt(test.getAttributes().getNamedItem("line").getTextContent())); //$NON-NLS-1$
-                                    oTestCase.setAssertions(Integer.parseInt(test.getAttributes().getNamedItem("assertions").getTextContent())); //$NON-NLS-1$
-                                    oTestCase.setTime(Float.parseFloat(test.getAttributes().getNamedItem("time").getTextContent())); //$NON-NLS-1$
-                                    final NodeList nlTest = test.getChildNodes();
-                                    
-                                    // try to find the itype and the imethod
-                                    final SearchMatch[] matches = MavenPhpUtils.findClass(clsName, MavenPhpUtils.createProjectScope(scriptProject));
-                                    final IType clsType = matches.length > 0 ? (IType) matches[0].getElement() : null;
-                                    final IMethod mthObject = clsType == null ? null : clsType.getMethod(mthName);
-                                    final IFile file = clsType == null ? null : (IFile) clsType.getResource();
-                                    final IFile targetFile = file == null ? null : locator.locateTestRuntimeFile(file, project, scriptProject);
-                                    final String targetFileName = targetFile == null ? null : targetFile.getLocation().toOSString();
-                                    final PHPSourceFile src = targetFile == null ? null : new PHPSourceFile(targetFile);
-                                    int mthFirstLine = -1;
-                                    int mthLastLine = -1;
-                                    
-                                    if (src != null && mthObject != null) {
-                                        mthFirstLine = src.findLineNumberForOffset(mthObject.getSourceRange().getOffset());
-                                        mthLastLine = src.findLineNumberForOffset(mthObject.getSourceRange().getOffset() + mthObject.getSourceRange().getLength());
-                                    }
-                                    
-                                    for (int iTest = 0; iTest < nlTest.getLength(); iTest++) {
-                                        final Node child = nlTest.item(iTest);
-                                        if ("failure".equals(child.getNodeName()) || "error".equals(child.getNodeName())) //$NON-NLS-1$ //$NON-NLS-2$
-                                        {
-                                            final TestError oError = new TestError();
-                                            oTestCase.addError(oError);
-                                            oError.setError("error".equals(child.getNodeName())); //$NON-NLS-1$
-                                            oError.setFailure("failure".equals(child.getNodeName())); //$NON-NLS-1$
-                                            // test failure
-                                            final String message = child.getTextContent();
-                                            oError.setType(child.getAttributes().getNamedItem("type").getTextContent()); //$NON-NLS-1$
-                                            oError.setMessage(message);
-                                            final ITraceElement[] trace = this.genTrace(message);
-                                            for (final ITraceElement e : trace) {
-                                                oError.addTraceElement(e);
-                                            }
-                                            
-                                            if (clsType != null && mthObject != null && targetFileName != null) {
-                                                // try to find the entry within
-                                                // the method itself
-                                                // get the target test class
-                                                // file name
-                                                for (final ITraceElement e : trace) {
-                                                    if (e.getFileName().equals(targetFileName) && mthFirstLine <= e.getLine() && mthLastLine >= e.getLine()) {
-                                                        oError.setTestMethodTraceElement(e);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            parseTestSuiteNode(project, result, locator, scriptProject, testsuite);
                         }
                     }
                 }
@@ -300,6 +231,110 @@ public class Phpunit355 implements IPhpUnit {
          * </testsuites>
          */
         return result.toArray(new ITestSuite[result.size()]);
+    }
+
+    /**
+     * parses the test suite node.
+     * @param project
+     * @param result
+     * @param locator
+     * @param scriptProject
+     * @param testsuite
+     * @throws CoreException
+     * @throws IOException
+     * @throws ModelException
+     */
+    private void parseTestSuiteNode(final IProject project, final List<ITestSuite> result, final ISourceLocator locator, final IScriptProject scriptProject, final Node testsuite)
+            throws CoreException, IOException, ModelException {
+        final TestSuite oTestSuite = new TestSuite();
+        result.add(oTestSuite);
+        if (testsuite.getAttributes().getNamedItem("name").getTextContent().trim().length() == 0) { //$NON-NLS-1$ 
+            oTestSuite.setName("<unnamed>"); //$NON-NLS-1$
+        } else {
+            oTestSuite.setName(testsuite.getAttributes().getNamedItem("name").getTextContent()); //$NON-NLS-1$
+        }
+        oTestSuite.setTests(Integer.parseInt(testsuite.getAttributes().getNamedItem("tests").getTextContent())); //$NON-NLS-1$
+        oTestSuite.setAssertions(Integer.parseInt(testsuite.getAttributes().getNamedItem("assertions").getTextContent())); //$NON-NLS-1$
+        oTestSuite.setFailures(Integer.parseInt(testsuite.getAttributes().getNamedItem("failures").getTextContent())); //$NON-NLS-1$
+        oTestSuite.setErrors(Integer.parseInt(testsuite.getAttributes().getNamedItem("errors").getTextContent())); //$NON-NLS-1$
+        oTestSuite.setTime(Float.parseFloat(testsuite.getAttributes().getNamedItem("time").getTextContent())); //$NON-NLS-1$
+        
+        if (testsuite.getAttributes().getNamedItem("file") != null) { //$NON-NLS-1$
+            oTestSuite.setFile(testsuite.getAttributes().getNamedItem("file").getTextContent()); //$NON-NLS-1$
+        }
+        final NodeList nlTestuite = testsuite.getChildNodes();
+        for (int iTestsuite = 0; iTestsuite < nlTestuite.getLength(); iTestsuite++) {
+            final Node test = nlTestuite.item(iTestsuite);
+            if (test.getNodeType() != Node.ELEMENT_NODE) continue;
+            if ("testsuite".equals(test.getNodeName())) //$NON-NLS-1$
+            {
+                final List<ITestSuite> childResult = new ArrayList<ITestSuite>();
+                this.parseTestSuiteNode(project, childResult, locator, scriptProject, test);
+                oTestSuite.addSubSuites(childResult);
+            }
+            else if ("testcase".equals(test.getNodeName())) //$NON-NLS-1$
+            {
+                final TestCase oTestCase = new TestCase();
+                oTestSuite.addTestCase(oTestCase);
+                final String clsName = test.getAttributes().getNamedItem("class").getTextContent(); //$NON-NLS-1$
+                final String mthName = test.getAttributes().getNamedItem("name").getTextContent(); //$NON-NLS-1$
+                
+                oTestCase.setName(mthName);
+                oTestCase.setClassName(clsName);
+                oTestCase.setFile(test.getAttributes().getNamedItem("file").getTextContent()); //$NON-NLS-1$
+                oTestCase.setLine(Integer.parseInt(test.getAttributes().getNamedItem("line").getTextContent())); //$NON-NLS-1$
+                oTestCase.setAssertions(Integer.parseInt(test.getAttributes().getNamedItem("assertions").getTextContent())); //$NON-NLS-1$
+                oTestCase.setTime(Float.parseFloat(test.getAttributes().getNamedItem("time").getTextContent())); //$NON-NLS-1$
+                final NodeList nlTest = test.getChildNodes();
+                
+                // try to find the itype and the imethod
+                final SearchMatch[] matches = MavenPhpUtils.findClass(clsName, MavenPhpUtils.createProjectScope(scriptProject));
+                final IType clsType = matches.length > 0 ? (IType) matches[0].getElement() : null;
+                final IMethod mthObject = clsType == null ? null : clsType.getMethod(mthName);
+                final IFile file = clsType == null ? null : (IFile) clsType.getResource();
+                final IFile targetFile = file == null ? null : locator.locateTestRuntimeFile(file, project, scriptProject);
+                final String targetFileName = targetFile == null ? null : targetFile.getLocation().toOSString();
+                final PHPSourceFile src = targetFile == null ? null : new PHPSourceFile(targetFile);
+                int mthFirstLine = -1;
+                int mthLastLine = -1;
+                
+                if (src != null && mthObject != null) {
+                    mthFirstLine = src.findLineNumberForOffset(mthObject.getSourceRange().getOffset());
+                    mthLastLine = src.findLineNumberForOffset(mthObject.getSourceRange().getOffset() + mthObject.getSourceRange().getLength());
+                }
+                
+                for (int iTest = 0; iTest < nlTest.getLength(); iTest++) {
+                    final Node child = nlTest.item(iTest);
+                    if ("failure".equals(child.getNodeName()) || "error".equals(child.getNodeName())) //$NON-NLS-1$ //$NON-NLS-2$
+                    {
+                        final TestError oError = new TestError();
+                        oTestCase.addError(oError);
+                        oError.setError("error".equals(child.getNodeName())); //$NON-NLS-1$
+                        oError.setFailure("failure".equals(child.getNodeName())); //$NON-NLS-1$
+                        // test failure
+                        final String message = child.getTextContent();
+                        oError.setType(child.getAttributes().getNamedItem("type").getTextContent()); //$NON-NLS-1$
+                        oError.setMessage(message);
+                        final ITraceElement[] trace = this.genTrace(message);
+                        for (final ITraceElement e : trace) {
+                            oError.addTraceElement(e);
+                        }
+                        
+                        if (clsType != null && mthObject != null && targetFileName != null) {
+                            // try to find the entry within
+                            // the method itself
+                            // get the target test class
+                            // file name
+                            for (final ITraceElement e : trace) {
+                                if (e.getFileName().equals(targetFileName) && mthFirstLine <= e.getLine() && mthLastLine >= e.getLine()) {
+                                    oError.setTestMethodTraceElement(e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     
     /**

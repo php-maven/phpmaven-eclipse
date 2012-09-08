@@ -11,7 +11,9 @@
 
 package org.phpmaven.eclipse.ui.views;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jface.viewers.ITreeContentProvider;
@@ -61,11 +63,16 @@ public class TestsTreeContentProvider implements ITreeContentProvider {
         }
         
         if (parent instanceof ITestSuite) {
-            final ITestCase[] testCases = ((ITestSuite) parent).getTestCases();
-            for (final ITestCase test : testCases) {
+            final List<Object> result = new ArrayList<Object>();
+            for (final ITestCase test : ((ITestSuite) parent).getTestCases()) {
                 this.childrenToParents.put(test, parent);
+                result.add(test);
             }
-            return testCases;
+            for (final ITestSuite suite : ((ITestSuite) parent).getSubSuites()) {
+                this.childrenToParents.put(suite, parent);
+                result.add(suite);
+            }
+            return result.toArray(new Object[result.size()]);
         }
         
         if (parent instanceof ITestCase) {

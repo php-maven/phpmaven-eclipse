@@ -48,6 +48,11 @@ public class TestSuite implements ITestSuite {
     
     /** */
     private String file;
+
+    /**
+     * The sub suites.
+     */
+    private List<ITestSuite> subSuites = new ArrayList<ITestSuite>();
     
     /**
      * @see org.phpmaven.eclipse.core.phpunit.ITestSuite#getName()
@@ -177,6 +182,21 @@ public class TestSuite implements ITestSuite {
     @Override
     public ITestCase[] getTestCases() {
         return this.list.toArray(new ITestCase[this.list.size()]);
+    }
+
+    /**
+     * @param childResult
+     */
+    public void addSubSuites(List<ITestSuite> childResult) {
+        this.subSuites .addAll(childResult);
+    }
+
+    /**
+     * @see org.phpmaven.eclipse.core.phpunit.ITestSuite#getSubSuites()
+     */
+    @Override
+    public ITestSuite[] getSubSuites() {
+        return this.subSuites.toArray(new ITestSuite[this.subSuites.size()]);
     }
     
 }
