@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: PHPMaven Core Plugin
 Bundle-SymbolicName: org.phpmaven.eclipse.core;singleton:=true
-Bundle-Version: 2.0.1
+Bundle-Version: 2.0.2
 Bundle-Activator: org.phpmaven.eclipse.core.PhpmavenCorePlugin
 Bundle-Vendor: php-maven.org
 Require-Bundle: org.eclipse.core.runtime,
