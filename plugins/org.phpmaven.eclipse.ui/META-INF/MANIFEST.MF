@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: PHPMaven UI Plugin
 Bundle-SymbolicName: org.phpmaven.eclipse.ui;singleton:=true
-Bundle-Version: 2.0.4.qualifier
+Bundle-Version: 2.0.4
 Bundle-Activator: org.phpmaven.eclipse.ui.PhpmavenUiPlugin
 Require-Bundle: org.eclipse.ui,
  org.eclipse.core.runtime,
