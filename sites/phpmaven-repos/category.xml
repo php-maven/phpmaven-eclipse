@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <feature url="features/org.phpmaven.eclipse.feature_0.0.0.jar" id="org.phpmaven.eclipse.feature" version="0.0.0">
+      <category name="PHP-Maven"/>
+   </feature>
+   <category-def name="PHP-Maven" label="PHP-Maven">
+      <description>
+         The PHP-Maven components
+      </description>
+   </category-def>
+</site>
